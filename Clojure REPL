@@ -1,61 +1,4 @@
 ;;;
-;;  trace.clj -- simple call-tracing macros for Clojure
-
-;;  by Stuart Sierra, http://stuartsierra.com/
-;;  December 3, 2008
-
-;;  Copyright (c) Stuart Sierra, 2008. All rights reserved. The use
-;;  and distribution terms for this software are covered by the Eclipse
-;;  Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
-;;  which can be found in the file epl-v10.html at the root of this
-;;  distribution. By using this software in any fashion, you are
-;;  agreeing to be bound by the terms of this license. You must not
-;;  remove this notice, or any other, from this software.
-;;
-;;  This file defines simple "tracing" macros to help you see what your
-;;  code is doing.
-;;
-;;  CHANGE LOG
-;;
-;;  Aug 23thd, 2013: Luc Préfontaine
-;;
-;;  * Fixed crash of throwable tracing when no string based constructor exists
-;;
-;;  December 1st, 2012: Luc Préfontaine
-;;
-;;  * Fixed README and comments in source file
-;;  * fixed changelog and readme
-;;  * added traced? and traceable/ fns
-;;  * removed reflection warnings
-;;
-;;  March 4, 2012: Luc Préfontaine
-;;
-;;  * added macro wrappers around fns allowing dynamic tracing.
-;;
-;;  Feb. 20, 2012: Luc Préfontaine
-;;
-;;  * added contribution from Michał Marczyk and Don jackson to allow dynamic tracing of fns in a namespace.
-;;
-;;  Sept 18, 2011: Luc Préfontaine
-;;
-;;  * moved it to new contrib modular struct
-;;
-;;  * made it 1.2/1.3 compliant
-;;
-;;  * supported doc strings
-;;
-;;  * added a trace-form macro, from Jonathan Fischer
-;; 
-;;  December 3, 2008:
-;; 
-;;  * replaced *trace-out* with tracer
-;; 
-;;  * made trace a function instead of a macro
-;;  (suggestion from Stuart Halloway)
-;; 
-;;  * added trace-fn-call
-;; 
-;;  June 9, 2008: first version
 ;;;
 (ns ^{:author "Stuart Sierra, Michel Salim, Luc Préfontaine, Jonathan Fischer Friberg, Michał Marczyk, Don Jackson"
       :doc "This file defines simple tracing macros to help you see what your code is doing."}
@@ -464,9 +407,13 @@ such as clojure.core/+"
 (def largelist '[[5 2 20 1 30 10][23 15 7 9 11 3][40 50 34 24 14 4]
                  [9 10 11 12 13 14][31 4 18 8 27 17][44 32 13 19 41 19]
                  [1 2 3 4 5 6][80 37 47 18 21 9]])
-(def innersortedLL '[[1 2 5 10 20 30][3 7 9 11 15 23][4 14 24 34 40 50]
+(def innerstedLL '[[1 2 5 10 20 30][3 7 9 11 15 23][4 14 24 34 40 50]
                  [9 10 11 12 13 14][4 8 17 18 27 31][13 19 19 32 41 44]
                  [1 2 3 4 5 6][9 18 21 37 47 80]])
+               
+(def sortedLargeList '[[1 2 3 4 5 6] [1 2 5 10 20 30] [3 7 9 11 15 23] [4 8 17 18 27 31] [4 14 24 34 40 50] [9 10 11 12 13 14] [9 18 21 37 47 80] [13 19 19 32 41 44]])
+
+(def sortedSmallList '[[2 5] [3 7] [8 10] [9 11] [18 21]])
                
 (sort '(5 2 20 1 30 10))
 
@@ -501,20 +448,57 @@ such as clojure.core/+"
       (lis2)
   ))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; SAMPLE CODE FOR LONGEST INCREASING SEQUENCE
+(defn place [piles card]
+  (let [[les gts] (->> piles (split-with #(<= (ffirst %) card)))
+        newelem (cons card (->> les last first))
+        modpile (cons newelem (first gts))]
+    (concat les (cons modpile (rest gts)))))
+ 
+(defn a-longest [cards]
+  (let [piles (reduce place '() cards)]
+    (->> piles last first reverse)))
+  
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  
+  
+  ;(map >= '[1 2 3 4 5 6] '[1 2 5 10 20 30])
+  ;  => (true true false false false false)   
+    
+  ;(map < '[1 2 3 4 5 6] '[1 2 5 10 20 30])
+  ;  => (false false true true true true)   
+  
+  
+ ; (defn box-stack [lis count]
+;    (if (empty? lis)
+;    count
+;    (if(map < (first lis) (first(rest lis)))
+;    (box-stack (rest (rest lis)) (inc count))
+;    (box-stack (rest list) count))))
+  
+  (defn box-stack [lis count]
+    (if (empty? lis)
+        count
+    (if (some false? (map < (first lis) (first (rest lis))))
+             (box-stack (rest (rest lis)) (inc count))
+             (box-stack (rest lis) count))))
+  
+  
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-  (bubble-sort innersortedLL)
-=> [[1 2 3 4 5 6] [1 2 5 10 20 30] [3 7 9 11 15 23] [4 8 17 18 27 31] [4 14 24 34 40 50] [9 10 11 12 13 14] [9 18 21 37 47 80] [13 19 19 32 41 44]]
-   (sort-first innersortedLL)
-=> ((1 2 5 10 20 30) (1 2 3 4 5 6) (3 7 9 11 15 23) (4 14 24 34 40 50) (4 8 17 18 27 31) (9 10 11 12 13 14) (9 18 21 37 47 80) (13 19 19 32 41 44))
-   (vec (sort-first largelist))
-=> [(1 2 5 10 20 30) (1 2 3 4 5 6) (3 7 9 11 15 23) (4 14 24 34 40 50) (4 8 17 18 27 31) (9 10 11 12 13 14) (9 18 21 37 47 80) (13 19 19 32 41 44)]
-   (map vec (sort-first largelist))
-=> ([1 2 5 10 20 30] [1 2 3 4 5 6] [3 7 9 11 15 23] [4 14 24 34 40 50] [4 8 17 18 27 31] [9 10 11 12 13 14] [9 18 21 37 47 80] [13 19 19 32 41 44])
-   (vec (map vec (sort-first largelist)))
-=> [[1 2 5 10 20 30] [1 2 3 4 5 6] [3 7 9 11 15 23] [4 14 24 34 40 50] [4 8 17 18 27 31] [9 10 11 12 13 14] [9 18 21 37 47 80] [13 19 19 32 41 44]]
-   (bubble-sort (vec (map vec (sort-first largelist))))
-=> [[1 2 3 4 5 6] [1 2 5 10 20 30] [3 7 9 11 15 23] [4 8 17 18 27 31] [4 14 24 34 40 50] [9 10 11 12 13 14] [9 18 21 37 47 80] [13 19 19 32 41 44]]
-   
+;;  (bubble-sort innersortedLL)
+;;=> [[1 2 3 4 5 6] [1 2 5 10 20 30] [3 7 9 11 15 23] [4 8 17 18 27 31] [4 14 24 34 40 50] [9 10 11 12 13 14] [9 18 21 37 47 80] [13 19 19 32 41 44]]
+   ;(sort-first innersortedLL)
+;; => ((1 2 5 10 20 30) (1 2 3 4 5 6) (3 7 9 11 15 23) (4 14 24 34 40 50) (4 8 17 18 27 31) (9 10 11 12 13 14) (9 18 21 37 47 80) (13 19 19 32 41 44))
+   ;(vec (sort-first largelist))
+;; => [(1 2 5 10 20 30) (1 2 3 4 5 6) (3 7 9 11 15 23) (4 14 24 34 40 50) (4 8 17 18 27 31) (9 10 11 12 13 14) (9 18 21 37 47 80) (13 19 19 32 41 44)]
+   ;(map vec (sort-first largelist))
+;; => ([1 2 5 10 20 30] [1 2 3 4 5 6] [3 7 9 11 15 23] [4 14 24 34 40 50] [4 8 17 18 27 31] [9 10 11 12 13 14] [9 18 21 37 47 80] [13 19 19 32 41 44])
+   ;(vec (map vec (sort-first largelist)))
+;; => [[1 2 5 10 20 30] [1 2 3 4 5 6] [3 7 9 11 15 23] [4 14 24 34 40 50] [4 8 17 18 27 31] [9 10 11 12 13 14] [9 18 21 37 47 80] [13 19 19 32 41 44]]
+   ;(bubble-sort (vec (map vec (sort-first largelist))))
+;; => [[1 2 3 4 5 6] [1 2 5 10 20 30] [3 7 9 11 15 23] [4 8 17 18 27 31] [4 14 24 34 40 50] [9 10 11 12 13 14] [9 18 21 37 47 80] [13 19 19 32 41 44]]
